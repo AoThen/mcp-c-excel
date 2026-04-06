@@ -25,6 +25,9 @@ namespace Sbroenne.ExcelMcp.ComInterop.Formatting;
 /// </remarks>
 public static class LocalMCodeFormatter
 {
+    private static readonly string[] s_whitespaceChars = { " ", "\t" };
+    private const string Indent = "    "; // 4 spaces
+
     /// <summary>
     /// Formats Power Query M code using simple rule-based formatting.
     /// </summary>
@@ -60,7 +63,7 @@ public static class LocalMCodeFormatter
     private static string NormalizeWhitespace(string mCode)
     {
         // Replace multiple spaces/tabs with single space
-        var parts = mCode.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+        var parts = mCode.Split(s_whitespaceChars, StringSplitOptions.RemoveEmptyEntries);
         return string.Join(" ", parts);
     }
 
@@ -68,7 +71,6 @@ public static class LocalMCodeFormatter
     {
         var result = new System.Text.StringBuilder();
         var indentLevel = 0;
-        const string indent = "    "; // 4 spaces
         var inLetSection = false;
 
         for (int i = 0; i < mCode.Length; i++)
@@ -94,7 +96,7 @@ public static class LocalMCodeFormatter
             {
                 indentLevel = Math.Max(0, indentLevel - 1);
                 result.AppendLine();
-                result.Append(indent, indentLevel);
+                result.Append(Indent, indentLevel);
                 result.Append("in");
                 inLetSection = false;
                 i += 1; // Skip 'in'
@@ -109,7 +111,7 @@ public static class LocalMCodeFormatter
                     result.Append(ch);
                     indentLevel++;
                     result.AppendLine();
-                    result.Append(indent, indentLevel);
+                    result.Append(Indent, indentLevel);
                     break;
 
                 case ')':
@@ -117,14 +119,14 @@ public static class LocalMCodeFormatter
                 case '}':
                     indentLevel = Math.Max(0, indentLevel - 1);
                     result.AppendLine();
-                    result.Append(indent, indentLevel);
+                    result.Append(Indent, indentLevel);
                     result.Append(ch);
                     break;
 
                 case ',':
                     result.Append(',');
                     result.AppendLine();
-                    result.Append(indent, indentLevel);
+                    result.Append(Indent, indentLevel);
                     break;
 
                 case '=' when inLetSection:

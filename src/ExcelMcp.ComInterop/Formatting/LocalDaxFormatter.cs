@@ -25,6 +25,9 @@ namespace Sbroenne.ExcelMcp.ComInterop.Formatting;
 /// </remarks>
 public static class LocalDaxFormatter
 {
+    private static readonly string[] s_whitespaceChars = { " ", "\t" };
+    private const string Indent = "    "; // 4 spaces
+
     /// <summary>
     /// Formats DAX code using simple rule-based formatting.
     /// </summary>
@@ -60,7 +63,7 @@ public static class LocalDaxFormatter
     private static string NormalizeWhitespace(string dax)
     {
         // Replace multiple spaces/tabs with single space
-        var parts = dax.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+        var parts = dax.Split(s_whitespaceChars, StringSplitOptions.RemoveEmptyEntries);
         return string.Join(" ", parts);
     }
 
@@ -68,7 +71,6 @@ public static class LocalDaxFormatter
     {
         var result = new System.Text.StringBuilder();
         var indentLevel = 0;
-        const string indent = "    "; // 4 spaces
 
         for (int i = 0; i < dax.Length; i++)
         {
@@ -83,21 +85,21 @@ public static class LocalDaxFormatter
                     if (i + 1 < dax.Length && dax[i + 1] != ')')
                     {
                         result.AppendLine();
-                        result.Append(indent, indentLevel);
+                        result.Append(Indent, indentLevel);
                     }
                     break;
 
                 case ')':
                     indentLevel = Math.Max(0, indentLevel - 1);
                     result.AppendLine();
-                    result.Append(indent, indentLevel);
+                    result.Append(Indent, indentLevel);
                     result.Append(')');
                     break;
 
                 case ',':
                     result.Append(',');
                     result.AppendLine();
-                    result.Append(indent, indentLevel);
+                    result.Append(Indent, indentLevel);
                     break;
 
                 case ' ':
