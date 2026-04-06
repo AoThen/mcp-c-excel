@@ -255,3 +255,5 @@ excel-mcp-bug-report.md
 .squad-workstream
 .copilot/*
 
+QWEN.md
+.qwen/settings.json

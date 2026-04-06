@@ -95,9 +95,6 @@ public class McpServerSmokeTests : IAsyncLifetime, IAsyncDisposable
 
     private async Task DisposeAsyncCore()
     {
-        // Flush telemetry before shutdown to ensure test telemetry is sent
-        ExcelMcpTelemetry.Flush();
-
         await ProgramTransportTestHost.StopAsync(
             _client,
             _clientToServerPipe,

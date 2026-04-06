@@ -72,9 +72,6 @@ internal sealed class CliServiceTray : IDisposable
         _taskbarWindow = new TaskbarNotificationWindow(_notifyIcon);
 
         RefreshSessionsMenu();
-
-        // Check for updates after a short delay so the UI is responsive at startup
-        CheckForUpdateAsync();
     }
 
     private static Icon LoadEmbeddedIcon()
@@ -89,37 +86,6 @@ internal sealed class CliServiceTray : IDisposable
         }
 
         return SystemIcons.Application;
-    }
-
-    /// <summary>
-    /// Checks NuGet for a newer version after a 5-second delay and shows a balloon tip if available.
-    /// </summary>
-    private async void CheckForUpdateAsync()
-    {
-        try
-        {
-            await Task.Delay(TimeSpan.FromSeconds(5));
-
-            if (_disposed) return;
-
-            var currentVersion = GetCurrentVersion();
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            var latestVersion = await NuGetVersionChecker.GetLatestVersionAsync(cts.Token);
-
-            if (_disposed || latestVersion == null) return;
-
-            if (CompareVersions(currentVersion, latestVersion) < 0)
-            {
-                ShowBalloon(
-                    "Update Available",
-                    $"ExcelMCP CLI {latestVersion} is available (current: {currentVersion}).\n" +
-                    "Download: github.com/sbroenne/mcp-server-excel/releases/latest");
-            }
-        }
-        catch
-        {
-            // Version check should never crash the service
-        }
     }
 
     private void RefreshSessionsMenu()
@@ -251,27 +217,14 @@ internal sealed class CliServiceTray : IDisposable
         _notifyIcon.ShowBalloonTip(3000, title, message, icon);
     }
 
-    private static async void ShowAbout()
+    private static void ShowAbout()
     {
         var version = GetCurrentVersion();
-
-        string? latestVersion = null;
-        try
-        {
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
-            latestVersion = await NuGetVersionChecker.GetLatestVersionAsync(cts.Token);
-        }
-        catch
-        {
-            // Version check failed — show dialog without update info
-        }
-
-        var updateAvailable = latestVersion != null && CompareVersions(version, latestVersion) < 0;
 
         using var form = new Form
         {
             Text = "About ExcelMCP CLI",
-            Size = new Size(420, updateAvailable ? 300 : 260),
+            Size = new Size(420, 260),
             FormBorderStyle = FormBorderStyle.FixedDialog,
             StartPosition = FormStartPosition.CenterScreen,
             MaximizeBox = false,
@@ -375,56 +328,9 @@ internal sealed class CliServiceTray : IDisposable
         var buttonY = 165;
         form.Controls.AddRange([iconBox, nameLabel, versionLabel, descLabel, githubLabel, githubLink, docsLabel, docsLink]);
 
-        if (updateAvailable)
-        {
-            var updateLabel = new Label
-            {
-                Text = $"Update available: {version} \u2192 {latestVersion}",
-                ForeColor = SystemColors.HotTrack,
-                Font = new Font(Control.DefaultFont, FontStyle.Bold),
-                AutoSize = true,
-                Location = new Point(70, 160),
-                AccessibleName = $"Update available from version {version} to {latestVersion}",
-                AccessibleRole = AccessibleRole.StaticText
-            };
-
-            var updateCmd = new TextBox
-            {
-                Text = "https://github.com/sbroenne/mcp-server-excel/releases/latest",
-                ReadOnly = true,
-                BorderStyle = BorderStyle.None,
-                BackColor = form.BackColor,
-                Location = new Point(70, 180),
-                Size = new Size(320, 20),
-                TabIndex = tabIndex++,
-                AccessibleName = "Download URL, select to copy",
-                AccessibleDescription = "Download the latest release from this URL"
-            };
-
-            form.Controls.AddRange([updateLabel, updateCmd]);
-            buttonY = 210;
-        }
-
-        var okButton = new Button
-        {
-            Text = "&OK",
-            DialogResult = System.Windows.Forms.DialogResult.OK,
-            Size = new Size(80, 28),
-            Location = new Point(160, buttonY),
-            TabIndex = tabIndex,
-            AccessibleName = "OK, close dialog"
-        };
-        form.AcceptButton = okButton;
         form.Controls.Add(okButton);
 
         form.ShowDialog();
-    }
-
-    private static int CompareVersions(string current, string latest)
-    {
-        if (Version.TryParse(current, out var currentVer) && Version.TryParse(latest, out var latestVer))
-            return currentVer.CompareTo(latestVer);
-        return string.Compare(current, latest, StringComparison.Ordinal);
     }
 
     private static string GetCurrentVersion()

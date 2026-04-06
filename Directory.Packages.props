@@ -8,18 +8,12 @@
     <!-- Excel COM Interop PIA -->
     <PackageVersion Include="Microsoft.Office.Interop.Excel" Version="16.0.18925.20022" />
     <!-- UI Framework -->
-    <PackageVersion Include="Dax.Formatter" Version="1.2.0" />
     <PackageVersion Include="Spectre.Console" Version="0.54.0" />
     <PackageVersion Include="Spectre.Console.Cli" Version="0.53.1" />
     <!-- Microsoft Extensions for MCP Server -->
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.5" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.5" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.5" />
-    <!-- Application Insights Worker Service SDK for telemetry (Users, Sessions, Funnels, User Flows) -->
-    <!-- Worker Service SDK provides proper DI integration, auto-collection modules, and host lifetime awareness -->
-    <PackageVersion Include="Microsoft.ApplicationInsights.WorkerService" Version="2.23.0" />
-    <!-- Base SDK needed for tests that directly use TelemetryClient -->
-    <PackageVersion Include="Microsoft.ApplicationInsights" Version="2.23.0" />
     <PackageVersion Include="Microsoft.Extensions.Resilience" Version="10.4.0" />
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.5" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.5" />

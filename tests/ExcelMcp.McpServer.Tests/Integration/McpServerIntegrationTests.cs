@@ -2,13 +2,10 @@
 // Licensed under the MIT License.
 
 using System.IO.Pipelines;
-using Microsoft.ApplicationInsights;
-using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
-using Sbroenne.ExcelMcp.McpServer.Telemetry;
 using Sbroenne.ExcelMcp.McpServer.Tools;
 using Xunit;
 using Xunit.Abstractions;
@@ -94,19 +91,6 @@ public class McpServerIntegrationTests(ITestOutputHelper output) : IAsyncLifetim
         // Build the server with DI - same pattern as Program.cs
         var services = new ServiceCollection();
         services.AddLogging(builder => builder.AddDebug().SetMinimumLevel(LogLevel.Debug));
-
-        // Configure telemetry (disabled for tests)
-        services.AddApplicationInsightsTelemetryWorkerService(options =>
-        {
-            options.ConnectionString = null;
-            options.EnableHeartbeat = false;
-            options.EnableAdaptiveSampling = false;
-            options.EnableQuickPulseMetricStream = false;
-            options.EnablePerformanceCounterCollectionModule = false;
-            options.EnableEventCounterCollectionModule = false;
-            options.EnableDependencyTrackingTelemetryModule = false;
-        });
-        services.AddSingleton<ITelemetryInitializer, ExcelMcpTelemetryInitializer>();
 
         // Add MCP server with tools (same as Program.cs) using stream transport for testing
         services
@@ -335,31 +319,6 @@ public class McpServerIntegrationTests(ITestOutputHelper output) : IAsyncLifetim
 
         output.WriteLine("\n✓ Server info correctly exposed via MCP protocol");
         await Task.CompletedTask; // Satisfy async requirement
-    }
-
-    /// <summary>
-    /// Tests that telemetry services are properly registered in DI.
-    /// </summary>
-    [Fact]
-    public void DI_TelemetryServicesRegistered()
-    {
-        output.WriteLine("=== TELEMETRY DI REGISTRATION ===\n");
-
-        Assert.NotNull(_serviceProvider);
-
-        // Act - Verify telemetry services are available
-        var telemetryClient = _serviceProvider.GetService<TelemetryClient>();
-        var telemetryInitializers = _serviceProvider.GetServices<ITelemetryInitializer>().ToList();
-
-        // Assert
-        Assert.NotNull(telemetryClient);
-        Assert.Contains(telemetryInitializers, i => i is ExcelMcpTelemetryInitializer);
-
-        output.WriteLine("✓ TelemetryClient registered");
-        output.WriteLine($"✓ Found {telemetryInitializers.Count} telemetry initializers");
-        output.WriteLine("✓ ExcelMcpTelemetryInitializer present");
-
-        output.WriteLine("\n✓ Telemetry services correctly registered in DI");
     }
 
     /// <summary>

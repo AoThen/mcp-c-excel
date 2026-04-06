@@ -41,7 +41,7 @@ internal sealed class Program
 
         if (filteredArgs.Any(arg => VersionFlags.Contains(arg, StringComparer.OrdinalIgnoreCase)))
         {
-            return await HandleVersionAsync();
+            return HandleVersion();
         }
 
         // Handle "service run" — runs the CLI daemon with tray icon (no banner)
@@ -225,30 +225,14 @@ internal sealed class Program
         err.WriteLine();
     }
 
-    private static async Task<int> HandleVersionAsync()
+    private static int HandleVersion()
     {
         var currentVersion = GetCurrentVersion();
-        var latestVersion = await NuGetVersionChecker.GetLatestVersionAsync();
-        var updateAvailable = latestVersion != null && CompareVersions(currentVersion, latestVersion) < 0;
 
         // Always show banner for version output
         RenderHeader();
 
-        // Show friendly update message if available
-        if (updateAvailable)
-        {
-            AnsiConsole.MarkupLine($"[yellow]⚠ Update available:[/] [dim]{currentVersion}[/] → [green]{latestVersion}[/]");
-            AnsiConsole.MarkupLine($"[cyan]Download:[/] [blue]https://github.com/sbroenne/mcp-server-excel/releases/latest[/]");
-        }
-        else if (latestVersion != null)
-        {
-            AnsiConsole.MarkupLine($"[green]✓ You're running the latest version:[/] [white]{currentVersion}[/]");
-        }
-        else
-        {
-            AnsiConsole.MarkupLine($"[yellow]⚠ Could not check for updates[/]");
-            AnsiConsole.MarkupLine($"[dim]Current version: {currentVersion}[/]");
-        }
+        AnsiConsole.MarkupLine($"[white]{currentVersion}[/]");
 
         return 0;
     }
@@ -259,13 +243,6 @@ internal sealed class Program
         var informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
         // Strip git hash suffix (e.g., "1.2.0+abc123" -> "1.2.0")
         return informational?.Split('+')[0] ?? assembly.GetName().Version?.ToString() ?? "0.0.0";
-    }
-
-    private static int CompareVersions(string current, string latest)
-    {
-        if (Version.TryParse(current, out var currentVer) && Version.TryParse(latest, out var latestVer))
-            return currentVer.CompareTo(latestVer);
-        return string.Compare(current, latest, StringComparison.Ordinal);
     }
 
     /// <summary>
