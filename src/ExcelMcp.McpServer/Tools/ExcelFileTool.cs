@@ -149,11 +149,13 @@ public static partial class ExcelFileTool
                 {
                     var sessionId = sessionIdProp.GetString();
                     string? filePath = doc.RootElement.TryGetProperty("filePath", out var fp) ? fp.GetString() : path;
+                    bool reused = doc.RootElement.TryGetProperty("reused", out var r) && r.GetBoolean();
                     return JsonSerializer.Serialize(new
                     {
                         success = true,
                         session_id = sessionId,
-                        filePath
+                        filePath,
+                        reused
                     }, ExcelToolsBase.JsonOptions);
                 }
             }

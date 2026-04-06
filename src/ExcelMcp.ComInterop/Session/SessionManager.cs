@@ -346,6 +346,25 @@ public sealed class SessionManager : IDisposable
 
         string normalizedPath = Path.GetFullPath(filePath);
 
+        // Acquire per-file lock to prevent TOCTOU races when concurrent requests
+        // create the same new file simultaneously
+        var fileLock = _fileLocks.GetOrAdd(normalizedPath, _ => new SemaphoreSlim(1, 1));
+        fileLock.Wait();
+
+        try
+        {
+            return CreateSessionForNewFileLocked(normalizedPath, filePath, show, operationTimeout, origin);
+        }
+        finally
+        {
+            fileLock.Release();
+            CleanupFileLockIfIdle(normalizedPath);
+        }
+    }
+
+    private string CreateSessionForNewFileLocked(string normalizedPath, string filePath, bool show, TimeSpan? operationTimeout, SessionOrigin origin)
+    {
+
         // Validate extension
         string extension = Path.GetExtension(normalizedPath).ToLowerInvariant();
         if (extension is not (".xlsx" or ".xlsm"))
@@ -830,6 +849,20 @@ public sealed class SessionManager : IDisposable
                 // Best-effort cleanup — continue with remaining sessions
             }
         }
+
+        // Clean up per-file locks (SemaphoreSlim instances hold native WaitHandles)
+        foreach (var kvp in _fileLocks)
+        {
+            try
+            {
+                kvp.Value.Dispose();
+            }
+            catch
+            {
+                // Best-effort
+            }
+        }
+        _fileLocks.Clear();
     }
 }
 
