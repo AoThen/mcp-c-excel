@@ -324,11 +324,17 @@ internal sealed class CliServiceTray : IDisposable
             catch { /* Ignore navigation errors */ }
         };
 
-        var tabIndex = 2;
-        var buttonY = 165;
-        form.Controls.AddRange([iconBox, nameLabel, versionLabel, descLabel, githubLabel, githubLink, docsLabel, docsLink]);
+        var okButton = new Button
+        {
+            Text = "OK",
+            DialogResult = DialogResult.OK,
+            Size = new Size(75, 23),
+            Location = new Point(200, 165),
+            TabIndex = 2,
+            AccessibleName = "OK"
+        };
 
-        form.Controls.Add(okButton);
+        form.Controls.AddRange([iconBox, nameLabel, versionLabel, descLabel, githubLabel, githubLink, docsLabel, docsLink, okButton]);
 
         form.ShowDialog();
     }
