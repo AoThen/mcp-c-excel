@@ -352,9 +352,9 @@ public class SessionManagerTests : IDisposable
     }
 
     [Fact]
-    public void CreateSession_SameFileAlreadyOpen_ThrowsInvalidOperationException()
+    public void CreateSession_SameFileAlreadyOpen_ReturnsExistingSessionId()
     {
-        var testFile = CreateTestFile(nameof(CreateSession_SameFileAlreadyOpen_ThrowsInvalidOperationException));
+        var testFile = CreateTestFile(nameof(CreateSession_SameFileAlreadyOpen_ReturnsExistingSessionId));
         using var manager = new SessionManager();
 
         // First session succeeds
@@ -362,15 +362,84 @@ public class SessionManagerTests : IDisposable
         Assert.NotNull(sessionId1);
         Assert.Equal(1, manager.ActiveSessionCount);
 
-        // Second session with same file should fail fast
-        var ex = Assert.Throws<InvalidOperationException>(
-            () => manager.CreateSession(testFile));
-
-        Assert.Contains("already open in another session", ex.Message);
-        Assert.Contains("Excel cannot open the same file multiple times", ex.Message);
+        // Second session with same file now returns the existing session instead of throwing
+        var sessionId2 = manager.CreateSession(testFile);
+        Assert.NotNull(sessionId2);
+        Assert.Equal(sessionId1, sessionId2); // Same session reused
         Assert.Equal(1, manager.ActiveSessionCount); // Still only one session
 
         manager.CloseSession(sessionId1);
+    }
+
+    [Fact]
+    public void GetOrCreateSession_ReturnsReusedSessionForSameFile()
+    {
+        var testFile = CreateTestFile(nameof(GetOrCreateSession_ReturnsReusedSessionForSameFile));
+        using var manager = new SessionManager();
+
+        // First call creates new session
+        var (sessionId1, reused1) = manager.GetOrCreateSession(testFile);
+        Assert.NotNull(sessionId1);
+        Assert.False(reused1);
+        Assert.Equal(1, manager.ActiveSessionCount);
+
+        // Second call reuses existing session
+        var (sessionId2, reused2) = manager.GetOrCreateSession(testFile);
+        Assert.NotNull(sessionId2);
+        Assert.True(reused2);
+        Assert.Equal(sessionId1, sessionId2);
+        Assert.Equal(1, manager.ActiveSessionCount);
+
+        manager.CloseSession(sessionId1);
+    }
+
+    [Fact]
+    public void GetOrCreateSession_ConcurrentSameFile_ReturnsSameSessionId()
+    {
+        var testFile = CreateTestFile(nameof(GetOrCreateSession_ConcurrentSameFile_ReturnsSameSessionId));
+        using var manager = new SessionManager();
+
+        // Launch multiple concurrent open requests for the SAME file
+        var tasks = Enumerable.Range(0, 5).Select(i => Task.Run(() =>
+        {
+            try
+            {
+                return manager.GetOrCreateSession(testFile);
+            }
+            catch (Exception ex)
+            {
+                // Should not happen with proper locking, but capture for debugging
+                return (SessionId: $"ERROR: {ex.Message}", Reused: false);
+            }
+        })).ToArray();
+
+        Task.WaitAll(tasks, TimeSpan.FromSeconds(60));
+
+        var results = tasks.Select(t => t.Result).ToArray();
+
+        // All should have succeeded
+        foreach (var result in results)
+        {
+            Assert.DoesNotStartWith("ERROR:", result.SessionId);
+        }
+
+        // All should return the same sessionId (first one creates, rest reuse)
+        var firstSessionId = results.First().SessionId;
+        foreach (var result in results)
+        {
+            Assert.Equal(firstSessionId, result.SessionId);
+        }
+
+        // Exactly one session should exist
+        Assert.Equal(1, manager.ActiveSessionCount);
+
+        // Exactly one should be "new" (reused=false), rest should be "reused" (reused=true)
+        var newCount = results.Count(r => !r.Reused);
+        var reusedCount = results.Count(r => r.Reused);
+        Assert.Equal(1, newCount);
+        Assert.Equal(4, reusedCount);
+
+        manager.CloseSession(firstSessionId);
     }
 
     [Fact]

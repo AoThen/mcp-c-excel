@@ -178,9 +178,13 @@ public class Program
                     CRITICAL: File must be CLOSED in Excel desktop app (COM requires exclusive access).
 
                     SESSION LIFECYCLE:
-                    1. file(action:'open') → returns sessionId
+                    1. file(action:'open') → returns sessionId (auto-reuses if file already open)
                     2. Use sessionId with ALL subsequent tools
                     3. file(action:'close', save:true/false) → ONLY when completely done
+
+                    AUTO-REUSE: Calling open on an already-open file returns the same sessionId
+                    automatically. You do NOT need to call 'list' first to check. The response
+                    includes "reused": true/false so you know if it's a new or existing session.
 
                     CALCULATION MODE (Performance Optimization):
                     - Use calculation_mode for bulk write operations (10+ cells with values or formulas).

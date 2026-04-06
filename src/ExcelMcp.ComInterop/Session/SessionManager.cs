@@ -106,6 +106,7 @@ public sealed class SessionManager : IDisposable
     private readonly ConcurrentDictionary<string, bool> _showExcelFlags = new();
     private readonly ConcurrentDictionary<string, SessionOrigin> _sessionOrigins = new();
     private readonly ConcurrentDictionary<string, DateTime> _sessionCreatedAt = new();
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _fileLocks = new(StringComparer.OrdinalIgnoreCase);
     private readonly Polly.ResiliencePipeline _sessionCreationPipeline = ResiliencePipelines.CreateSessionCreationPipeline();
     private readonly ILogger<SessionManager> _logger;
     private bool _disposed;
@@ -120,21 +121,29 @@ public sealed class SessionManager : IDisposable
     }
 
     /// <summary>
-    /// Creates a new session for the specified Excel file.
+    /// Gets an existing session for the specified file, or creates a new one if none exists.
+    /// This prevents errors when the same file is opened multiple times across conversations.
     /// </summary>
     /// <param name="filePath">Path to the Excel file to open</param>
-    /// <param name="show">Whether to show the Excel window (default: false for background automation)</param>
-    /// <param name="operationTimeout">Maximum time for any operation in this session (default: 5 minutes)</param>
+    /// <param name="show">Whether to show the Excel window. If reusing an existing session,
+    /// visibility will be updated to match this value.</param>
+    /// <param name="operationTimeout">Maximum time for any operation in this session (default: 5 minutes).
+    /// Ignored if reusing an existing session.</param>
     /// <param name="origin">Which client is creating this session (CLI or MCP)</param>
-    /// <returns>Unique session ID for this session</returns>
+    /// <returns>Tuple of (sessionId, reused) where reused indicates if an existing session was returned.</returns>
     /// <exception cref="FileNotFoundException">File does not exist</exception>
-    /// <exception cref="InvalidOperationException">Failed to create session or file already open in another session</exception>
-    /// <remarks>
-    /// <para><b>Resource Impact:</b> Creates a new Excel.Application process (~50-100MB+ memory).</para>
-    /// <para><b>Same-file prevention:</b> Throws if file is already open in another session.</para>
-    /// <para><b>Concurrency:</b> You can create multiple sessions for DIFFERENT files. Operations within each session execute serially.</para>
-    /// </remarks>
-    public string CreateSession(string filePath, bool show = false, TimeSpan? operationTimeout = null, SessionOrigin origin = SessionOrigin.Unknown)
+    /// <exception cref="InvalidOperationException">Failed to create session</exception>
+    public (string SessionId, bool Reused) GetOrCreateSession(string filePath, bool show = false, TimeSpan? operationTimeout = null, SessionOrigin origin = SessionOrigin.Unknown)
+    {
+        return GetOrCreateSessionInternal(filePath, show, operationTimeout, origin);
+    }
+
+    /// <summary>
+    /// Internal implementation: Gets an existing session or creates a new one.
+    /// Uses per-file locking to prevent TOCTOU race conditions when concurrent
+    /// requests try to open the same file simultaneously.
+    /// </summary>
+    private (string SessionId, bool Reused) GetOrCreateSessionInternal(string filePath, bool show = false, TimeSpan? operationTimeout = null, SessionOrigin origin = SessionOrigin.Unknown)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -146,12 +155,118 @@ public sealed class SessionManager : IDisposable
         // Normalize file path for comparison
         string normalizedPath = Path.GetFullPath(filePath);
 
-        // Check if file is already open in another session
-        if (_activeFilePaths.ContainsKey(normalizedPath))
+        // Acquire per-file lock to serialize same-file open operations (prevents TOCTOU races)
+        var fileLock = _fileLocks.GetOrAdd(normalizedPath, _ => new SemaphoreSlim(1, 1));
+        fileLock.Wait();
+
+        try
         {
-            throw new InvalidOperationException($"File '{filePath}' is already open in another session. Excel cannot open the same file multiple times.");
+            return GetOrCreateSessionInternalLocked(normalizedPath, filePath, show, operationTimeout, origin);
+        }
+        finally
+        {
+            fileLock.Release();
+            // Clean up lock object when no longer needed (best-effort, not critical)
+            CleanupFileLockIfIdle(normalizedPath);
+        }
+    }
+
+    /// <summary>
+    /// Core get-or-create logic — must be called while holding the per-file lock.
+    /// </summary>
+    private (string SessionId, bool Reused) GetOrCreateSessionInternalLocked(string normalizedPath, string filePath, bool show, TimeSpan? operationTimeout, SessionOrigin origin)
+    {
+        // Check if file is already open in another session — if so, reuse it
+        if (_activeFilePaths.TryGetValue(normalizedPath, out var existingSessionId))
+        {
+            // Verify the session is still alive
+            if (_activeSessions.TryGetValue(existingSessionId, out var batch))
+            {
+                if (batch.IsExcelProcessAlive())
+                {
+                    // Update visibility if requested (Excel COM call on STA thread)
+                    if (show != _showExcelFlags.GetOrAdd(existingSessionId, show))
+                    {
+                        try
+                        {
+                            UpdateExcelVisibility(batch, show);
+                            _showExcelFlags[existingSessionId] = show;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger?.LogWarning(ex, "Failed to update Excel visibility for reused session {SessionId}", existingSessionId);
+                        }
+                    }
+
+                    _logger?.LogInformation("Reusing existing session for '{FilePath}' (sessionId: {SessionId})", filePath, existingSessionId);
+                    return (existingSessionId, true);
+                }
+                else
+                {
+                    // Session is dead — clean up proactively so we can create a fresh one
+                    _logger?.LogWarning("Session {SessionId} for '{FilePath}' has dead Excel process, cleaning up before creating new session", existingSessionId, filePath);
+                    CleanupDeadSession(existingSessionId, batch);
+                }
+            }
         }
 
+        // No existing (or alive) session — create a new one
+        var newSessionId = CreateSessionInternalLocked(normalizedPath, filePath, show, operationTimeout, origin);
+        return (newSessionId, false);
+    }
+
+    /// <summary>
+    /// Removes a per-file lock from the dictionary when no concurrent waiters exist.
+    /// </summary>
+    private void CleanupFileLockIfIdle(string normalizedPath)
+    {
+        if (_fileLocks.TryGetValue(normalizedPath, out var lockObj)
+            && lockObj.CurrentCount == 1
+            && !_activeFilePaths.ContainsKey(normalizedPath))
+        {
+            _fileLocks.TryRemove(normalizedPath, out _);
+            lockObj.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Updates the visibility of an Excel batch on its STA thread.
+    /// </summary>
+    private static void UpdateExcelVisibility(IExcelBatch batch, bool show)
+    {
+        batch.Execute((ctx, ct) =>
+        {
+            ctx.Excel.Visible = show;
+        });
+    }
+
+    /// <summary>
+    /// Creates a new session for the specified Excel file.
+    /// </summary>
+    /// <param name="filePath">Path to the Excel file to open</param>
+    /// <param name="show">Whether to show the Excel window (default: false for background automation)</param>
+    /// <param name="operationTimeout">Maximum time for any operation in this session (default: 5 minutes)</param>
+    /// <param name="origin">Which client is creating this session (CLI or MCP)</param>
+    /// <returns>Unique session ID for this session</returns>
+    /// <exception cref="FileNotFoundException">File does not exist</exception>
+    /// <exception cref="InvalidOperationException">Failed to create session or file already open in another session</exception>
+    /// <remarks>
+    /// <para><b>Resource Impact:</b> Creates a new Excel.Application process (~50-100MB+ memory).</para>
+    /// <para><b>Same-file behavior:</b> If file is already open, returns the existing session ID instead of throwing.</para>
+    /// <para><b>Concurrency:</b> You can create multiple sessions for DIFFERENT files. Operations within each session execute serially.</para>
+    /// </remarks>
+    public string CreateSession(string filePath, bool show = false, TimeSpan? operationTimeout = null, SessionOrigin origin = SessionOrigin.Unknown)
+    {
+        var (sessionId, _) = GetOrCreateSessionInternal(filePath, show, operationTimeout, origin);
+        return sessionId;
+    }
+
+    /// <summary>
+    /// Internal implementation: Creates a new session. Assumes caller holds the per-file lock
+    /// and has already checked for existing sessions.
+    /// </summary>
+    private string CreateSessionInternalLocked(string normalizedPath, string filePath, bool show, TimeSpan? operationTimeout, SessionOrigin origin)
+    {
         // Generate unique session ID
         string sessionId = Guid.NewGuid().ToString("N");
 
@@ -171,9 +286,13 @@ public sealed class SessionManager : IDisposable
             // Track the file path
             if (!_activeFilePaths.TryAdd(normalizedPath, sessionId))
             {
-                // Cleanup if file path tracking fails
+                // Cleanup if file path tracking fails — this can happen when another concurrent
+                // request beat us to creating the session (TOCTOU race that the lock should prevent)
                 _activeSessions.TryRemove(sessionId, out _);
-                throw new InvalidOperationException($"Failed to track file path for session: {sessionId}");
+                throw new InvalidOperationException(
+                    $"Another request is concurrently opening '{filePath}'. " +
+                    $"The session was already created. Retry with the same file path to get the existing session.",
+                    new InvalidOperationException("File path tracking collision"));
             }
 
             if (!_sessionFilePaths.TryAdd(sessionId, normalizedPath))

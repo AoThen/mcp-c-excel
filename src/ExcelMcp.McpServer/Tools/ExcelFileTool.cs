@@ -17,8 +17,9 @@ public static partial class ExcelFileTool
     /// WORKFLOW: open → use sessionId with other tools → close (save=true to persist changes).
     /// NEW FILES: Use 'create' action to create file AND start session in one call.
     ///
-    /// SESSION REUSE: Call 'list' first to check for existing sessions.
-    /// If file is already open, reuse existing sessionId instead of opening again.
+    /// SESSION AUTO-REUSE: Calling 'open' on a file that is already open automatically
+    /// returns the existing sessionId instead of error. You do NOT need to call 'list' first.
+    /// The response includes a "reused" field (true/false) indicating if an existing session was reused.
     ///
     /// IMPORTANT: Before closing, check 'list' action - wait for canClose=true (no active operations).
     /// If show=true was used, confirm with user before closing visible Excel windows.

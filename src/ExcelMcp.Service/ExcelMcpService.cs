@@ -369,11 +369,11 @@ public sealed class ExcelMcpService : IDisposable
             TimeSpan? timeout = args.TimeoutSeconds.HasValue
                 ? TimeSpan.FromSeconds(args.TimeoutSeconds.Value)
                 : null;
-            var sessionId = _sessionManager.CreateSession(args.FilePath, show: args.Show, operationTimeout: timeout, origin: SessionOrigin.CLI);
+            var (sessionId, reused) = _sessionManager.GetOrCreateSession(args.FilePath, show: args.Show, operationTimeout: timeout, origin: SessionOrigin.CLI);
             return new ServiceResponse
             {
                 Success = true,
-                Result = JsonSerializer.Serialize(new { success = true, sessionId, filePath = args.FilePath }, ServiceProtocol.JsonOptions)
+                Result = JsonSerializer.Serialize(new { success = true, sessionId, filePath = args.FilePath, reused }, ServiceProtocol.JsonOptions)
             };
         }
         catch (Exception ex)
