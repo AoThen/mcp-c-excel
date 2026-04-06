@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last Updated:** January 13, 2026
+**Last Updated:** April 6, 2026
 
 ## Overview
 
@@ -8,48 +8,33 @@ MCP Server for Excel ("ExcelMcp") is an open-source tool that enables AI assista
 
 ## Data Collection Summary
 
-ExcelMcp collects **limited, anonymous telemetry** to improve the software. Here's what we do and don't collect:
-
-### What We DO Collect (Anonymous Telemetry)
-
-- **Tool usage statistics** - Which tools and actions are used (e.g., "range/get-values")
-- **Performance metrics** - How long operations take (duration in milliseconds)
-- **Success/failure rates** - Whether operations completed successfully
-- **Session information** - A random session ID generated each time the server starts
-- **Anonymous user ID** - A hashed identifier based on machine identity (not personally identifiable)
-- **Application version** - Which version of ExcelMcp is running
-- **Unhandled exceptions** - Error types (not error messages or stack traces with sensitive data)
+**ExcelMcp does NOT collect any data.** All operations are performed entirely on your local machine with no external network communication.
 
 ### What We DO NOT Collect
 
-- ❌ **File contents** - We never collect data from your Excel files
-- ❌ **File names or paths** - File paths are hashed locally; actual paths are never transmitted
+- ❌ **Telemetry** - No usage statistics, performance metrics, or error reports are collected
+- ❌ **File contents** - We never access or transmit data from your Excel files
+- ❌ **File names or paths** - File paths are never transmitted anywhere
 - ❌ **Personal information** - No names, emails, or account information
 - ❌ **Spreadsheet data** - Cell values, formulas, and data remain completely private
 - ❌ **User accounts** - No registration or sign-in required
+- ❌ **Analytics** - No tracking, no cookies, no user identification
 
-### Purpose of Telemetry
+### Zero Network Communication
 
-We use anonymous telemetry to:
-- Understand which features are most used
-- Identify and fix performance issues
-- Prioritize development of new features
-- Detect and fix bugs
-
-### Telemetry Infrastructure
-
-Telemetry is sent to **Azure Application Insights**, a Microsoft service. Data is:
-- Transmitted over HTTPS
-- Stored in accordance with Microsoft's data handling policies
-- Retained for analytics purposes only
+ExcelMcp operates with **zero outbound network traffic**:
+- No HTTP/HTTPS requests are made
+- No data is sent to any external servers
+- No telemetry or analytics services are integrated
+- DAX and M code formatting is performed locally (offline)
 
 ## How It Works
 
-ExcelMcp operates on your local machine:
+ExcelMcp operates entirely on your local machine:
 
 1. **Local Processing** - All Excel operations are performed locally via Microsoft's COM API
 2. **Your Files Stay Local** - Excel files are read from and written to your local filesystem only
-3. **Minimal Network Usage** - The only network traffic is anonymous telemetry to Azure Application Insights
+3. **Zero Network Usage** - No network communication of any kind
 
 ## Data Flow
 
@@ -58,14 +43,12 @@ When you use ExcelMcp with an AI assistant (like Claude):
 1. You send a request to the AI assistant
 2. The AI assistant calls ExcelMcp tools on your local machine
 3. ExcelMcp performs the requested Excel operations locally
-4. Anonymous usage telemetry is sent to Azure Application Insights
-5. Results are returned to the AI assistant
+4. Results are returned to the AI assistant
 
-**Note:** The AI assistant you use (e.g., Claude) has its own privacy policy governing how it handles your conversations and data. ExcelMcp only handles the local Excel operations and sends anonymous usage metrics.
+**Note:** The AI assistant you use (e.g., Claude) has its own privacy policy governing how it handles your conversations and data. ExcelMcp only handles the local Excel operations and does not send any data externally.
 
 ## Third-Party Services
 
-- **Azure Application Insights** - Anonymous telemetry is sent to this Microsoft service. See [Microsoft's Privacy Statement](https://privacy.microsoft.com/privacystatement).
 - **Microsoft Excel** - ExcelMcp requires Microsoft Excel installed on your machine. Excel is subject to Microsoft's privacy policy.
 - **AI Assistants** - When used with AI assistants like Claude, those services have their own privacy policies.
 
@@ -97,4 +80,4 @@ For questions about this privacy policy or the ExcelMcp project:
 
 ---
 
-**Summary:** ExcelMcp processes your Excel files locally on your machine. We collect anonymous usage telemetry (tool usage, performance, errors) to improve the software, but never collect your file contents, file names, or personal information.
+**Summary:** ExcelMcp processes your Excel files entirely locally on your machine with zero network communication. We do not collect any telemetry, analytics, or personal data. Your file contents, file names, and all operations remain completely private.

@@ -202,12 +202,10 @@ public static class ExcelToolsBase
         Func<Exception, string?>? customHandler = null)
     {
         var stopwatch = Stopwatch.StartNew();
-        var success = false;
 
         try
         {
             var result = operation();
-            success = true;
             return result;
         }
         catch (Exception ex)
