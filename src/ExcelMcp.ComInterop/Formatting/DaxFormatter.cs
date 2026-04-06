@@ -33,7 +33,7 @@ public static class DaxFormatter
     /// Formats DAX code using a local offline formatter.
     /// </summary>
     /// <param name="daxCode">The DAX code to format</param>
-    /// <param name="cancellationToken">Cancellation token for the HTTP request</param>
+    /// <param name="cancellationToken">Cancellation token (unused for local formatting)</param>
     /// <returns>Formatted DAX code, or original code if formatting fails</returns>
     /// <remarks>
     /// This method NEVER throws exceptions. If formatting fails for any reason,
@@ -41,7 +41,8 @@ public static class DaxFormatter
     /// </remarks>
     public static async Task<string> FormatAsync(string daxCode, CancellationToken cancellationToken = default)
     {
-        return await LocalDaxFormatter.FormatAsync(daxCode, cancellationToken);
+        _ = cancellationToken; // Suppress unused parameter warning
+        return await LocalDaxFormatter.FormatAsync(daxCode);
     }
 }
 

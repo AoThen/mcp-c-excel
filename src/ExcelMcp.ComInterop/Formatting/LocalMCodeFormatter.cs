@@ -32,9 +32,8 @@ public static class LocalMCodeFormatter
     /// Formats Power Query M code using simple rule-based formatting.
     /// </summary>
     /// <param name="mCode">The M code to format</param>
-    /// <param name="cancellationToken">Cancellation token (unused for local formatting)</param>
     /// <returns>Formatted M code, or original code if formatting fails</returns>
-    public static Task<string> FormatAsync(string mCode, CancellationToken cancellationToken = default)
+    public static Task<string> FormatAsync(string mCode)
     {
         if (string.IsNullOrWhiteSpace(mCode))
             return Task.FromResult(mCode);
@@ -96,7 +95,8 @@ public static class LocalMCodeFormatter
             {
                 indentLevel = Math.Max(0, indentLevel - 1);
                 result.AppendLine();
-                result.Append(Indent, indentLevel);
+                for (int j = 0; j < indentLevel; j++)
+                    result.Append(Indent);
                 result.Append("in");
                 inLetSection = false;
                 i += 1; // Skip 'in'
@@ -111,7 +111,8 @@ public static class LocalMCodeFormatter
                     result.Append(ch);
                     indentLevel++;
                     result.AppendLine();
-                    result.Append(Indent, indentLevel);
+                    for (int j = 0; j < indentLevel; j++)
+                        result.Append(Indent);
                     break;
 
                 case ')':
@@ -119,14 +120,16 @@ public static class LocalMCodeFormatter
                 case '}':
                     indentLevel = Math.Max(0, indentLevel - 1);
                     result.AppendLine();
-                    result.Append(Indent, indentLevel);
+                    for (int j = 0; j < indentLevel; j++)
+                        result.Append(Indent);
                     result.Append(ch);
                     break;
 
                 case ',':
                     result.Append(',');
                     result.AppendLine();
-                    result.Append(Indent, indentLevel);
+                    for (int j = 0; j < indentLevel; j++)
+                        result.Append(Indent);
                     break;
 
                 case '=' when inLetSection:

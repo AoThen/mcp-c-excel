@@ -33,7 +33,7 @@ public static class MCodeFormatter
     /// Formats Power Query M code using a local offline formatter.
     /// </summary>
     /// <param name="mCode">The M code to format</param>
-    /// <param name="cancellationToken">Cancellation token for the HTTP request</param>
+    /// <param name="cancellationToken">Cancellation token (unused for local formatting)</param>
     /// <returns>Formatted M code, or original code if formatting fails</returns>
     /// <remarks>
     /// This method NEVER throws exceptions. If formatting fails for any reason,
@@ -41,7 +41,8 @@ public static class MCodeFormatter
     /// </remarks>
     public static async Task<string> FormatAsync(string mCode, CancellationToken cancellationToken = default)
     {
-        return await LocalMCodeFormatter.FormatAsync(mCode, cancellationToken);
+        _ = cancellationToken; // Suppress unused parameter warning
+        return await LocalMCodeFormatter.FormatAsync(mCode);
     }
 }
 

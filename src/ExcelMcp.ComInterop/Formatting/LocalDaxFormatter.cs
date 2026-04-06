@@ -32,9 +32,8 @@ public static class LocalDaxFormatter
     /// Formats DAX code using simple rule-based formatting.
     /// </summary>
     /// <param name="daxCode">The DAX code to format</param>
-    /// <param name="cancellationToken">Cancellation token (unused for local formatting)</param>
     /// <returns>Formatted DAX code, or original code if formatting fails</returns>
-    public static Task<string> FormatAsync(string daxCode, CancellationToken cancellationToken = default)
+    public static Task<string> FormatAsync(string daxCode)
     {
         if (string.IsNullOrWhiteSpace(daxCode))
             return Task.FromResult(daxCode);
@@ -85,21 +84,24 @@ public static class LocalDaxFormatter
                     if (i + 1 < dax.Length && dax[i + 1] != ')')
                     {
                         result.AppendLine();
-                        result.Append(Indent, indentLevel);
+                        for (int j = 0; j < indentLevel; j++)
+                            result.Append(Indent);
                     }
                     break;
 
                 case ')':
                     indentLevel = Math.Max(0, indentLevel - 1);
                     result.AppendLine();
-                    result.Append(Indent, indentLevel);
+                    for (int j = 0; j < indentLevel; j++)
+                        result.Append(Indent);
                     result.Append(')');
                     break;
 
                 case ',':
                     result.Append(',');
                     result.AppendLine();
-                    result.Append(Indent, indentLevel);
+                    for (int j = 0; j < indentLevel; j++)
+                        result.Append(Indent);
                     break;
 
                 case ' ':
