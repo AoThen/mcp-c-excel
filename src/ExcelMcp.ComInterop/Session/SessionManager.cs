@@ -236,7 +236,7 @@ public sealed class SessionManager : IDisposable
     {
         batch.Execute((ctx, ct) =>
         {
-            ctx.Excel.Visible = show;
+            ctx.App.Visible = show;
         });
     }
 
