@@ -37,6 +37,33 @@ jobs:
     - name: Build MCP Server
       run: dotnet build src/ExcelMcp.McpServer/ExcelMcp.McpServer.csproj --no-restore --configuration Release
 
+    - name: Publish MCP Server (standalone exe)
+      run: |
+        dotnet publish src/ExcelMcp.McpServer/ExcelMcp.McpServer.csproj `
+          --configuration Release `
+          --runtime win-x64 `
+          --self-contained true `
+          -p:PublishSingleFile=true `
+          -p:IncludeNativeLibrariesForSelfExtract=true `
+          -p:PublishTrimmed=false `
+          -p:PublishReadyToRun=false `
+          --output ./mcp-server-publish
+      shell: pwsh
+
+    - name: Rename exe to mcp-excel.exe
+      run: |
+        $expectedExe = "mcp-server-publish/Sbroenne.ExcelMcp.McpServer.exe"
+        if (Test-Path $expectedExe) {
+          Rename-Item $expectedExe "mcp-excel.exe"
+          Write-Output "✅ Renamed to mcp-excel.exe"
+        } else {
+          Write-Error "Expected executable not found at: $expectedExe"
+          Write-Output "Contents of mcp-server-publish/:"
+          Get-ChildItem "mcp-server-publish/" | Select-Object Name
+          exit 1
+        }
+      shell: pwsh
+
     - name: Verify Core Commands Coverage
       run: |
         Write-Output "🔍 Verifying Core Commands coverage..."
@@ -50,10 +77,10 @@ jobs:
 
     - name: Verify MCP Server build
       run: |
-        # Check MCP Server executable
-        if (Test-Path "src/ExcelMcp.McpServer/bin/Release/net10.0-windows/Sbroenne.ExcelMcp.McpServer.exe") {
-          Write-Output "✅ Sbroenne.ExcelMcp.McpServer.exe built successfully"
-          $mcpVersion = (Get-Item "src/ExcelMcp.McpServer/bin/Release/net10.0-windows/Sbroenne.ExcelMcp.McpServer.exe").VersionInfo.FileVersion
+        # Check standalone executable
+        if (Test-Path "mcp-server-publish/mcp-excel.exe") {
+          Write-Output "✅ mcp-excel.exe built successfully (standalone)"
+          $mcpVersion = (Get-Item "mcp-server-publish/mcp-excel.exe").VersionInfo.FileVersion
           Write-Output "📦 MCP Server Version: $mcpVersion"
 
           # Check for MCP server.json configuration
@@ -63,7 +90,7 @@ jobs:
             Write-Warning "⚠️ MCP server.json configuration not found"
           }
         } else {
-          Write-Error "❌ Sbroenne.ExcelMcp.McpServer.exe not found"
+          Write-Error "❌ mcp-excel.exe not found"
           exit 1
         }
 
@@ -74,4 +101,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: ExcelMcp-MCP-Server-${{ github.sha }}
-        path: src/ExcelMcp.McpServer/bin/Release/net10.0-windows/
+        path: mcp-server-publish/
